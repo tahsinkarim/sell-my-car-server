@@ -62,6 +62,14 @@ async function run(){
             res.send(result)
         })
 
+        //Delete From My Orders
+        app.delete('/orders/:id', async (req,res)=>{
+            const id = req.params.id 
+            const query = {_id: ObjectId(id)}
+            const result = await ordersCollection.deleteOne(query)
+            res.send(result)
+        })
+
         //Add user on sign up
         app.post('/users', async (req, res) => {
             const user = req.body
