@@ -26,12 +26,22 @@ async function run(){
             const category = await cursor.toArray()
             res.send(category)
         })
+
         //Read all available cars
         app.get('/availableCars', async (req, res)=> {
             const query = { available: true}
             const cursor = availableCarsCollection.find(query)
             const availableCars = await cursor.toArray()
             res.send(availableCars)
+        })
+
+        //Read cars by category id
+         app.get('/category/:id', async (req, res)=> {
+            const id = req.params.id
+            const query = { available: true, categoryId: id}
+            const cursor = availableCarsCollection.find(query)
+            const result = await cursor.toArray()
+            res.send(result)
         })
 
     } 
