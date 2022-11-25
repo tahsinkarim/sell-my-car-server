@@ -92,7 +92,7 @@ async function run(){
         })
 
         //Report to admin
-        app.post('/report', async (req, res) => {
+        app.post('/reports', async (req, res) => {
             const report = req.body
             const query = {carId: report.carId, user: report.user}
             //Check if user already Reported this item
@@ -103,6 +103,13 @@ async function run(){
             }
             const result = await reportsCollection.insertOne(report)
             res.send(result)
+        })
+
+        //Get Reported Items
+        app.get('/reports', async (req,res)=>{
+            const query = {}
+            const reports = await reportsCollection.find(query).toArray()
+            res.send(reports)
         })
 
     } 
