@@ -20,6 +20,7 @@ async function run(){
         const availableCarsCollection = client.db('sellMyCar').collection('availableCars')
         const usersCollection = client.db('sellMyCar').collection('users')
         const ordersCollection = client.db('sellMyCar').collection('orders')
+        const reportsCollection = client.db('sellMyCar').collection('reports')
 
         //Read all Category
         app.get('/category', async (req, res)=> {
@@ -74,6 +75,33 @@ async function run(){
         app.post('/users', async (req, res) => {
             const user = req.body
             const result = await usersCollection.insertOne(user)
+            res.send(result)
+        })
+        //Get all Buyers
+        app.get('/users/buyers', async (req, res)=>{
+            const query = {role: 'buyer'}
+            const result = await usersCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        //Get all Sellers
+        app.get('/users/sellers', async (req, res)=>{
+            const query = {role: 'seller'}
+            const result = await usersCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        //Report to admin
+        app.post('/report', async (req, res) => {
+            const report = req.body
+            const query = {carId: report.carId, user: report.user}
+            //Check if user already Reported this item
+            const alreadyReported = await reportsCollection.find(query).toArray()
+            if(alreadyReported.length){
+                const message = `You already reported this item`
+                return res.send ({acknowledged: false, message})
+            }
+            const result = await reportsCollection.insertOne(report)
             res.send(result)
         })
 
