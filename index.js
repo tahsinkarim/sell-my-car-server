@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors')
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express()
 require('dotenv').config()
@@ -13,6 +14,25 @@ const uri = `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASS}@c
 
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+function verifyJWT(req, res, next) {
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send('unauthorized access');
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'forbidden access' })
+        }
+        req.decoded = decoded;
+        next();
+    })
+
+}
+
 //async await
 async function run(){
     try{
@@ -21,7 +41,17 @@ async function run(){
         const usersCollection = client.db('sellMyCar').collection('users')
         const ordersCollection = client.db('sellMyCar').collection('orders')
         const reportsCollection = client.db('sellMyCar').collection('reports')
-
+        //Get JWT
+        app.get('/jwt', async (req, res) => {
+            const email = req.query.email;
+            const query = { email: email };
+            const user = await usersCollection.findOne(query);
+            if (user) {
+                const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
+                return res.send({ accessToken: token });
+            }
+            res.status(403).send({ accessToken: '' })
+        });
         //Read all Category
         app.get('/category', async (req, res)=> {
             const query = {}
@@ -92,7 +122,7 @@ async function run(){
         })
 
         //Get Orders by Email
-        app.get('/orders', async (req, res)=>{
+        app.get('/orders', verifyJWT, async (req, res)=>{
             const email = req.query.email
             const query = {email: email}
             const result = await ordersCollection.find(query).toArray()
@@ -108,9 +138,15 @@ async function run(){
         })
 
         //Add user on sign up
-        app.post('/users', async (req, res) => {
+        app.put('/users/:email', async (req, res) => {
             const user = req.body
-            const result = await usersCollection.insertOne(user)
+            const email = req.params.email
+            const query = { email: email};
+            const option = {upsert : true}
+            const updatedData = {
+                $set: {...user}
+            }
+            const result = await usersCollection.updateOne(query, updatedData, option)
             res.send(result)
         })
 
@@ -129,16 +165,32 @@ async function run(){
             const result = await usersCollection.deleteOne(query)
             res.send(result)
         })
-        
-        //Get all Buyers
-        app.get('/users/buyers', async (req, res)=>{
-            const query = {role: 'buyer'}
+
+        app.get('/users/allUsers', async (req, res)=>{
+            const query = {}
+            const result = await usersCollection.find(query).toArray()
+            res.send(result)
+        })
+        //Check user Role is with useAdmin hook
+        app.get('/users/getRole/:email', async (req, res)=>{
+            const email = req.params.email
+            const query = { email: email}
             const result = await usersCollection.find(query).toArray()
             res.send(result)
         })
 
+        
+        
+        //Get all Buyers
+        app.get('/users/buyers', verifyJWT ,async (req, res)=>{
+            const query = {role: 'buyer'}
+            const result = await usersCollection.find(query).toArray()
+            console.log('get working')
+            res.send(result)
+        })
+
         //Get all Sellers
-        app.get('/users/sellers', async (req, res)=>{
+        app.get('/users/sellers', verifyJWT ,async (req, res)=>{
             const query = {role: 'seller'}
             const result = await usersCollection.find(query).toArray()
             res.send(result)
