@@ -30,12 +30,49 @@ async function run(){
             res.send(category)
         })
 
+        // Get cars by seller email
+        app.get('/myCars', async (req, res)=> {
+            const email = req.query.email
+            const query = {sellerEmail: email}
+            const cursor = availableCarsCollection.find(query)
+            const availableCars = await cursor.toArray()
+            res.send(availableCars)
+        })
+        // Update Seller info
+        app.put('/myCars/:id', async (req, res)=> {
+            const id = req.params.id
+            const query = { _id: ObjectId(id)};
+            const data = req.body
+            const option = {upsert : true}
+            const updatedData = {
+                $set: {...data}
+            }
+            const result = await availableCarsCollection.updateOne(query, updatedData, option)
+            res.send(result)
+        })
+
+        //Delete Seller Car
+        app.delete('/myCars/:id', async (req, res)=> {
+            const id = req.params.id
+            const query = { _id: ObjectId(id)};
+            const result = await availableCarsCollection.deleteOne(query)
+            res.send(result)
+        })
+
+
         //Read all available cars
         app.get('/availableCars', async (req, res)=> {
             const query = { available: true}
             const cursor = availableCarsCollection.find(query)
             const availableCars = await cursor.toArray()
             res.send(availableCars)
+        })
+
+        //Add New Available Car
+        app.post('/availableCars', async (req,res)=> {
+            const newCar = req.body
+            const result = await availableCarsCollection.insertOne(newCar)
+            res.send(result)
         })
 
         //Read cars by category id
@@ -50,7 +87,6 @@ async function run(){
         //Add a order
         app.post('/orders', async (req, res)=>{
             const order = req.body
-            console.log(order)
             const result = await ordersCollection.insertOne(order)
             res.send(result)
         })
@@ -77,6 +113,23 @@ async function run(){
             const result = await usersCollection.insertOne(user)
             res.send(result)
         })
+
+        //Get users info by email by seller
+        app.get('/users', async (req, res)=>{
+            const userEmail = req.query.email
+            const query = {email : userEmail}
+            const result = await usersCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        //Delete User By Admin
+        app.delete('/users/:email', async (req, res)=>{
+            const email = req.params.email
+            const query = { email: email}
+            const result = await usersCollection.deleteOne(query)
+            res.send(result)
+        })
+        
         //Get all Buyers
         app.get('/users/buyers', async (req, res)=>{
             const query = {role: 'buyer'}
@@ -89,6 +142,21 @@ async function run(){
             const query = {role: 'seller'}
             const result = await usersCollection.find(query).toArray()
             res.send(result)
+        })
+
+        //Update Sellers
+        app.put('/users/sellers/:email', async (req, res)=> {
+            const email = req.params.email
+            const query = { email: email};
+            const carsQuery = {sellerEmail: email}
+            const data = req.body
+            const option = {upsert : true}
+            const updatedData = {
+                $set: {...data}
+            }
+            const result = await usersCollection.updateOne(query, updatedData, option)
+            const carsCollection = await availableCarsCollection.updateMany(carsQuery, updatedData)
+            res.send({result, carsCollection})
         })
 
         //Report to admin
@@ -110,6 +178,16 @@ async function run(){
             const query = {}
             const reports = await reportsCollection.find(query).toArray()
             res.send(reports)
+        })
+
+         //Delete reported Items by admin
+         app.delete('/reports/:id', async (req, res)=> {
+            const id = req.params.id
+            const carQuery = { _id: ObjectId(id)};
+            const reportQuery = {carId: id}
+            const deleteReport = await reportsCollection.deleteOne(reportQuery)
+            const result = await availableCarsCollection.deleteOne(carQuery)
+            res.send({deleteReport, result})
         })
 
     } 
