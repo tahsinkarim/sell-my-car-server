@@ -102,6 +102,15 @@ async function run(){
             res.send(availableCars)
         })
 
+        //Get Advertised cars that are available
+        app.get('/advertisedCars', async (req, res)=> {
+            const query = { available: true, advertise: true}
+            const cursor = availableCarsCollection.find(query)
+            const availableCars = await cursor.toArray()
+            res.send(availableCars)
+        })
+        
+
         //Read cars by id
         app.get('/availableCars/:id', async (req, res)=> {
             const id = req.params.id
