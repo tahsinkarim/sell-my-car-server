@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express()
 require('dotenv').config()
+const stripe = require('stripe')(process.env.STRIPE_PK)
 const port = process.env.PORT || 5000;
 
 //Middleware
@@ -39,15 +40,18 @@ async function run(){
         const categoryCollection = client.db('sellMyCar').collection('category')
         const availableCarsCollection = client.db('sellMyCar').collection('availableCars')
         const usersCollection = client.db('sellMyCar').collection('users')
-        const ordersCollection = client.db('sellMyCar').collection('orders')
         const reportsCollection = client.db('sellMyCar').collection('reports')
+        const ordersCollection = client.db('sellMyCar').collection('orders')
+        const paidCollection = client.db('sellMyCar').collection('payments')
+        
         //Get JWT
+
         app.get('/jwt', async (req, res) => {
             const email = req.query.email;
             const query = { email: email };
             const user = await usersCollection.findOne(query);
             if (user) {
-                const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
+                const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '5h' })
                 return res.send({ accessToken: token });
             }
             res.status(403).send({ accessToken: '' })
@@ -98,10 +102,28 @@ async function run(){
             res.send(availableCars)
         })
 
+        //Read cars by id
+        app.get('/availableCars/:id', async (req, res)=> {
+            const id = req.params.id
+            const query = { _id: ObjectId(id)}
+            const result = await availableCarsCollection.findOne(query)
+            res.send(result)
+        })
+
         //Add New Available Car
         app.post('/availableCars', async (req,res)=> {
             const newCar = req.body
             const result = await availableCarsCollection.insertOne(newCar)
+            res.send(result)
+        })
+
+        app.put('/availableCars/:id', async (req,res)=>{
+            const id = req.params.id
+            const data = req.body
+            const query = {_id: ObjectId(id)}
+            const update = {$set: {...data}}
+            const option = {upsert : true}
+            const result = await availableCarsCollection.updateOne(query, update, option)
             res.send(result)
         })
 
@@ -122,10 +144,18 @@ async function run(){
         })
 
         //Get Orders by Email
-        app.get('/orders', verifyJWT, async (req, res)=>{
+        app.get('/orders/', verifyJWT ,async (req, res)=>{
             const email = req.query.email
             const query = {email: email}
             const result = await ordersCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        //Get orders by id
+        app.get('/orders/:id', async (req, res)=>{
+            const id = req.params.id
+            const query = {_id: ObjectId(id)}
+            const result = await ordersCollection.findOne(query)
             res.send(result)
         })
 
@@ -242,6 +272,27 @@ async function run(){
             res.send({deleteReport, result})
         })
 
+        app.post('/payments', async(req, res)=>{
+            const data = req.body
+            const result = await paidCollection.insertOne(data)
+            res.send(result)
+        })
+
+        app.post('/create-payment-intent', async (req, res)=>{
+            const order = req.body
+            const price = order.price 
+            const amountInUsd = price * 10
+            const paymentIntent = await stripe.paymentIntents.create({
+                currency: 'usd',
+                amount: amountInUsd,
+                "payment_method_types": [
+                    "card"
+                ]
+            })
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            })
+        })
     } 
     finally {
 
