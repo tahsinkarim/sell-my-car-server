@@ -45,7 +45,6 @@ async function run(){
         const paidCollection = client.db('sellMyCar').collection('payments')
         
         //Get JWT
-
         app.get('/jwt', async (req, res) => {
             const email = req.query.email;
             const query = { email: email };
@@ -56,6 +55,18 @@ async function run(){
             }
             res.status(403).send({ accessToken: '' })
         });
+
+        //verifySeller
+        const verifySeller = async (req, res, next) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await usersCollection.findOne(query);
+
+            if (user?.role !== 'seller') {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+            next();
+        }
         //Read all Category
         app.get('/category', async (req, res)=> {
             const query = {}
@@ -119,8 +130,8 @@ async function run(){
             res.send(result)
         })
 
-        //Add New Available Car
-        app.post('/availableCars', async (req,res)=> {
+        //Add New Available Car and verify seller
+        app.post('/availableCars', verifyJWT, verifySeller, async (req,res)=> {
             const newCar = req.body
             const result = await availableCarsCollection.insertOne(newCar)
             res.send(result)
@@ -224,7 +235,6 @@ async function run(){
         app.get('/users/buyers', verifyJWT ,async (req, res)=>{
             const query = {role: 'buyer'}
             const result = await usersCollection.find(query).toArray()
-            console.log('get working')
             res.send(result)
         })
 
